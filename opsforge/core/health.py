@@ -1,64 +1,35 @@
-import os
 import json
+import os
 
-BASE_PATH = "opsforge"
-REQUIRED_DIRS = ["core", "utils", "storage"]
-CONFIG_PATH = os.path.join("opsforge", "storage", "config.json")
-LOG_PATH = os.path.join("opsforge", "storage", "logs.txt")
+BASE_PATH = os.path.join("opsforge", "storage")
+CONFIG_PATH = os.path.join(BASE_PATH, "config.json")
+LOG_PATH = os.path.join(BASE_PATH, "logs.txt")
 
-def run_health_check(json_mode=False):
-    results = []
-    status = "OK"
+def run_health_check(json_mode=False, strict=False):
+    issues = []
 
-    def add(level, message):
-        nonlocal status
-        results.append({"level": level, "message": message})
-        if level == "FAIL":
-            status = "FAIL"
-        elif level == "WARN" and status != "FAIL":
-            status = "WARN"
-
-    # Directory checks
-    for d in REQUIRED_DIRS:
-        if os.path.isdir(os.path.join(BASE_PATH, d)):
-            add("OK", f"Directory present: {d}")
-        else:
-            add("FAIL", f"Missing directory: {d}")
-
-    # Config check
     if not os.path.exists(CONFIG_PATH):
-        add("FAIL", "config.json missing")
-    else:
-        try:
-            with open(CONFIG_PATH, "r") as f:
-                config = json.load(f)
-            if not config:
-                add("WARN", "config.json is empty")
-            else:
-                add("OK", "config.json loaded")
-        except:
-            add("FAIL", "config.json unreadable or invalid")
+        issues.append("config_missing")
 
-    # Logs check
-    if os.path.exists(LOG_PATH):
-        try:
-            with open(LOG_PATH, "a"):
-                pass
-            add("OK", "logs.txt writable")
-        except:
-            add("WARN", "logs.txt not writable")
+    if not os.path.exists(LOG_PATH):
+        issues.append("logs_missing")
+
+    if not issues:
+        status = "OK"
+    elif "config_missing" in issues:
+        status = "FAIL"
     else:
-        add("WARN", "logs.txt missing")
+        status = "WARN"
+
+    if strict and status != "OK":
+        status = "FAIL"
 
     if json_mode:
-        return json.dumps({
+        output = json.dumps({
             "status": status,
-            "checks": results
-        }, indent=2)
+            "issues": issues
+        })
+    else:
+        output = f"Health status: {status}"
 
-    # Human-readable output
-    lines = [f"Health Status: {status}"]
-    for r in results:
-        lines.append(f"[{r['level']}] {r['message']}")
-
-    return "\n".join(lines)
+    return status, output

@@ -1,17 +1,21 @@
-from core.status import get_status
-from core.health import run_health_check
-from utils.logger import log
+from opsforge.core.health import run_health_check
 
-def handle_command(command, flags):
-    if command == "status":
-        result = get_status()
-        log("Executed status command")
-        return result
+def handle_command(args):
+    if not args:
+        print("No command provided")
+        return 1
+
+    command = args[0]
+    strict = "--strict" in args
+    json_mode = "--json" in args
 
     if command == "health":
-        json_mode = "--json" in flags
-        result = run_health_check(json_mode=json_mode)
-        log(f"Executed health command (json={json_mode})")
-        return result
+        status, output = run_health_check(json_mode=json_mode, strict=strict)
+        print(output)
 
-    return "Unknown command"
+        if status == "FAIL":
+            return 1
+        return 0
+
+    print(f"Unknown command: {command}")
+    return 1
